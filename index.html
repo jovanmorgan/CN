@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Media Center C-Net (Vercel Ready)</title>
+    <title>Media Center C-Net (fixed URLs)</title>
 
     <!-- Bootstrap -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -48,39 +48,66 @@
             max-height: 100%;
             max-width: 100%;
         }
+
+        .filename {
+            word-break: break-all;
+        }
     </style>
 </head>
 
 <body>
     <div class="container py-5">
-        <h2 class="text-center fw-bold mb-4">📦 Semua Media C-Net</h2>
+        <h2 class="text-center fw-bold mb-4">📦 Semua Media C-Net (fix URL)</h2>
 
         <div id="mediaContainer" class="row g-4">
-            <!-- Media muncul otomatis -->
+            <!-- Kartu media akan masuk di sini -->
         </div>
     </div>
 
     <script>
         const folder = "icon-cn/";
 
-        // ---- FETCH LIST.JSON (WAJIB UNTUK VERCEL) ----
-        fetch(folder + "list.json")
-            .then(res => res.json())
-            .then(files => {
-                files.forEach(filename => {
-                    const filePath = folder + filename;
-                    buatCardMedia(filePath, filename);
+        fetch(folder)
+            .then(res => res.text())
+            .then(htmlText => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(htmlText, "text/html");
+                const links = doc.querySelectorAll("a");
+
+                links.forEach(a => {
+                    let raw = a.getAttribute("href");
+                    if (!raw) return;
+
+                    // Decode dari %5C
+                    let decoded = decodeURIComponent(raw);
+
+                    // ganti \ menjadi /
+                    decoded = decoded.replace(/\\/g, "/");
+
+                    // hapus ../ atau ./ di awal
+                    decoded = decoded.replace(/^\.\//, "").replace(/^\.\.\//, "");
+
+                    // Abaikan folder parent
+                    if (decoded === "" || decoded === "../") return;
+
+                    // === FIX TERPENTING ===
+                    // Jika sudah ada icon-cn/ maka jangan tambahkan lagi
+                    let finalPath = decoded.includes(folder)
+                        ? decoded
+                        : folder + decoded;
+
+                    // hapus double slash
+                    finalPath = finalPath.replace(/\/\/+/g, "/");
+
+                    buatCardMedia(finalPath, decoded);
                 });
-            })
-            .catch(err => {
-                console.error("Gagal memuat list.json:", err);
             });
 
-        // ---- BUAT KARTU MEDIA ----
         function buatCardMedia(srcPath, filenameShown) {
             const ext = filenameShown.split(".").pop().toLowerCase();
-            const safeUrl = encodeURI(srcPath);
             const container = document.getElementById("mediaContainer");
+
+            const safeUrl = encodeURI(srcPath);
 
             let previewHtml = "";
 
@@ -100,27 +127,28 @@
             col.className = "col-6 col-md-4 col-lg-3";
 
             col.innerHTML = `
-                <div class="card shadow-sm media-card">
-                    <div class="media-wrapper">
-                        <button class="btn btn-primary btn-sm copy-btn" onclick="copyLink('${safeUrl}')">Copy Link</button>
-                        ${previewHtml}
-                    </div>
-                    <div class="card-body text-center">
-                        <small>${filenameShown}</small>
-                    </div>
+            <div class="card shadow-sm media-card">
+                <div class="media-wrapper">
+                    <button class="btn btn-primary btn-sm copy-btn" onclick="copyLink('${safeUrl}')">Copy Link</button>
+                    ${previewHtml}
                 </div>
-            `;
+                <div class="card-body text-center">
+                    <small>${filenameShown}</small>
+                </div>
+            </div>
+        `;
 
             container.appendChild(col);
         }
 
-        // ---- COPY LINK ----
         function copyLink(path) {
-            const fullUrl = window.location.origin + "/" + path;
-            navigator.clipboard.writeText(fullUrl);
-            alert("Link disalin:\n" + fullUrl);
+            const full = window.location.origin + "/" + path;
+            navigator.clipboard.writeText(full);
+            alert("Link disalin:\n" + full);
         }
     </script>
+
+
 </body>
 
 </html>
